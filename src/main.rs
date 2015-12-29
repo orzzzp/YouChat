@@ -25,11 +25,17 @@ impl PushManager {
 				let command = receiver.recv().unwrap();
 				match command {
 					PushCommand::NewConnection {id, stream} => {
-						map.insert(id, stream);
+						let (tx, rx) = channel();
+						map.insert(id, tx);
+						thread::spawn(move|| {
+							let message: String = rx.recv().unwrap();
+							let mut stream = BufWriter::new(stream);
+							stream.write(message.as_ref());
+						});
+
 					}
 					PushCommand::SendMessage {id, message} => {
-						let mut stream = BufWriter::new(map.get(&id).unwrap());
-						stream.write(message.as_ref());
+						map.get(&id).unwrap().send(message);
 					}
 				}
 			}
